@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  mysql:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: "rootpassword"
+      MYSQL_USER: db
+      MYSQL_PASSWORD: db
+      MYSQL_DATABASE: db
+    ports:
+      - 3306:3306
+
+  minio:
+    image: minio/minio
+    environment:
+      MINIO_ROOT_USER: minioroot
+      MINIO_ROOT_PASSWORD: miniopassword
+    ports:
+      - 9000:9000
+      - 9001:9001
+    entrypoint:
+      - sh
+      - -c
+      - mkdir -p /data/backups && minio server /data --console-address=:9001
+
+  backup:
+    build: ..
+    volumes:
+    - ../backup.sh:/backup.sh
+    environment:
+      DB_ENGINE: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpassword
+      # DB_NAME: db
+      AWS_ACCESS_KEY_ID: minioroot
+      AWS_SECRET_ACCESS_KEY: miniopassword
+      AWS_S3_ENDPOINT: http://minio:9000
+      AWS_BUCKET_NAME: backups
+      AWS_BUCKET_BACKUP_PATH: /mysql
+    depends_on:
+      - mysql
+      - minio
+
