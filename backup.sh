@@ -28,7 +28,7 @@ if [ "$DB_ENGINE" == "postgres" ]; then
     fi
 elif [ "$DB_ENGINE" == "mysql" ]; then
     db_args="--host=${DB_HOST} --port=$DB_PORT --user=${DB_USER} --password=${DB_PASSWORD}"
-    dump_cmd="mysqldump ${db_args}"
+    dump_cmd="mysqldump ${db_args} --no-tablespaces"
 
     if ping_result=$(mysql ${db_args} -e 'SELECT 1' 2>&1); then
         echo "[$(date +'%d-%m-%Y %H:%M:%S')] Succesfully connected to mysql host"
@@ -57,8 +57,12 @@ if [ "$AWS_S3_ENDPOINT" ]; then
 fi
 
 for database in ${DB_NAME//,/ }; do
-    backup_file="${database}_$(date +$BACKUP_TIMESTAMP).sql.gz"
-    if ! backup_result=$($dump_cmd $database | gzip | aws $endpoint s3 cp - s3://${AWS_BUCKET_NAME}${AWS_BUCKET_BACKUP_PATH}/$backup_file); then
+    if [ "$BACKUP_TIMESTAMP" == "none" ]; then
+        backup_file="${database}.sql.gz"
+    else
+        backup_file="${database}_$(date +$BACKUP_TIMESTAMP).sql.gz"
+    fi
+    if ! backup_result=$(set -o pipefail;$dump_cmd $database | gzip | aws $endpoint s3 cp - s3://${AWS_BUCKET_NAME}${AWS_BUCKET_BACKUP_PATH}/$backup_file); then
         echo "[$(date +'%d-%m-%Y %H:%M:%S')] Backup for $database failed: $backup_result"
         exit 3
     fi

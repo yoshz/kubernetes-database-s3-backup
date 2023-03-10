@@ -1,6 +1,6 @@
 # Kubernetes S3 Database Backup
 
-A small Docker image that dumps a MySQL or PostgreSQL database directly into a S3 bucket.
+A small Docker image that dumps one or all MySQL or PostgreSQL databases and uploads it to a S3 bucket.
 
 ## Environment variables
 
@@ -20,6 +20,13 @@ A small Docker image that dumps a MySQL or PostgreSQL database directly into a S
 | AWS_BUCKET_BACKUP_PATH                        | S3 Bucket path (default is `/backups`)
 | BACKUP_TIMESTAMP                              | Database timestamp format (default is `%Y%m%d%H%M%S`)
 
+
+## Mysql User
+
+```sql
+CREATE USER 'cloud-backup'@'%' IDENTIFIED WITH mysql_native_password BY '****';
+GRANT SELECT, LOCK TABLES, SHOW VIEW ON mydb.* TO 'cloud-backup'@'%';
+```
 
 ## IAM Policy
 
@@ -105,6 +112,19 @@ spec:
                   key: database_password
 ```
 
+## Object versioning
+
+If you enabled versioning on the bucket you can use Lifecycle rules to delete old versions.
+
+This requires the script to always use the same filename when uploading a backup file.
+
+You can disable the timestamp in the filename by setting the environment variable to:
+```yaml
+- name: BACKUP_TIMESTAMP
+  value: "none"
+```
+
+
 ## Tests
 
 ```bash
@@ -113,8 +133,8 @@ docker-compose -f tests/docker-compose.postgres.yml up -d postgres minio
 docker-compose -f tests/docker-compose.postgres.yml run --rm backup
 
 # mysql
-docker-compose -f tests/docker-compose.postgres.yml up -d postgres minio
-docker-compose -f tests/docker-compose.postgres.yml run --rm backup
+docker-compose -f tests/docker-compose.mysql.yml up -d mysql minio
+docker-compose -f tests/docker-compose.mysql.yml run --rm backup
 
 # open minio browser
 xdg-open http://minioroot:miniopassword@localhost:9001/buckets/backups/browse
